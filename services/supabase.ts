@@ -13,6 +13,12 @@ const isValidUrl = (url: string) => {
     }
 };
 
+console.log('Supabase Config Debug:', {
+    url: supabaseUrl ? 'Found' : 'Missing',
+    key: supabaseAnonKey ? 'Found' : 'Missing',
+    isUrlValid: supabaseUrl ? isValidUrl(supabaseUrl) : false
+});
+
 if (!supabaseUrl || !isValidUrl(supabaseUrl) || !supabaseAnonKey || supabaseAnonKey === 'YOUR_SUPABASE_ANON_KEY_HERE' || supabaseAnonKey.startsWith('sb_')) {
     console.error('Supabase configuration is missing or invalid. Please check .env.local');
     if (supabaseAnonKey?.startsWith('sb_')) {
