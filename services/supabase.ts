@@ -13,8 +13,11 @@ const isValidUrl = (url: string) => {
     }
 };
 
-if (!supabaseUrl || !isValidUrl(supabaseUrl) || !supabaseAnonKey || supabaseAnonKey === 'YOUR_SUPABASE_ANON_KEY_HERE') {
+if (!supabaseUrl || !isValidUrl(supabaseUrl) || !supabaseAnonKey || supabaseAnonKey === 'YOUR_SUPABASE_ANON_KEY_HERE' || supabaseAnonKey.startsWith('sb_')) {
     console.error('Supabase configuration is missing or invalid. Please check .env.local');
+    if (supabaseAnonKey?.startsWith('sb_')) {
+        console.error('Detected a Storyblok key instead of a Supabase Anon Key. Please use the Anon Key from Supabase Project Settings > API.');
+    }
 }
 
 // Export a safe client or throw a better error? 
