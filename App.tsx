@@ -53,7 +53,7 @@ const App: React.FC = () => {
 
       <main className="flex-grow">
         <AnimatePresence mode="wait">
-          <Routes location={location} key={location.pathname}>
+          <Routes location={location}>
             <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={user ? <Navigate to="/dashboard" /> : <AuthPage onAuthSuccess={setUser} />} />
             <Route path="/scan" element={<ScannerPage />} />
