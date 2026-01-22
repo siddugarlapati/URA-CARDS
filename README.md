@@ -2,7 +2,7 @@
 
 LuxeCard is an institutional-grade digital business card platform designed for high-trust professional networking. It features real-time analytics, dynamic "bento-grid" layouts, and seamless sharing via QR codes and deep links.
 
-![LuxeCard Preview](https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6)
+
 
 ## Features
 
