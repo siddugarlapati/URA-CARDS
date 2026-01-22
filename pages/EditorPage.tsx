@@ -26,7 +26,7 @@ const EditorPage: React.FC = () => {
    const [activeTab, setActiveTab] = useState<'identity' | 'socials' | 'fields' | 'styling' | 'smart'>('identity');
 
    const [cardData, setCardData] = useState<Partial<CardData>>({
-      name: '', role: '', company: '', phone: '', isPhonePrivate: true,
+      name: '', usernameSlug: '', role: '', company: '', phone: '', isPhonePrivate: true,
       email: '', isEmailPrivate: false, website: '', bio: '',
       socialLinks: { custom: [], linkedin: '', github: '', twitter: '', instagram: '', tiktok: '', youtube: '', whatsapp: '' },
       primaryCTA: 'save_contact',
@@ -74,12 +74,22 @@ const EditorPage: React.FC = () => {
    const handleSave = async () => {
       setSaving(true);
       try {
+         // Auto-generate slug if missing
+         let savePayload = { ...cardData };
+         if (!savePayload.usernameSlug && savePayload.name) {
+            const randomSuffix = Math.random().toString(36).substring(2, 7);
+            savePayload.usernameSlug = savePayload.name.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + randomSuffix;
+         } else if (!savePayload.usernameSlug) {
+            // Fallback if no name either
+            savePayload.usernameSlug = 'user-' + Math.random().toString(36).substring(2, 9);
+         }
+
          if (cardData.id) {
-            await CardService.updateCard(cardData.id, cardData);
+            await CardService.updateCard(cardData.id, savePayload);
          } else {
             const user = await authApi.getCurrentUser();
             if (user) {
-               await CardService.createCard(user.id, cardData);
+               await CardService.createCard(user.id, savePayload);
             } else {
                // Redirect to login if not authenticated (unlikely if in editor but possible)
                navigate('/auth');
