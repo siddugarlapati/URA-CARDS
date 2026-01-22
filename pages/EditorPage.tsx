@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CardService } from '../services/cards';
 import { authApi } from '../services/auth';
+import { StorageService } from '../services/storage';
 import { CardData, ThemeSettings, SocialLinks, PrimaryCTA } from '../types';
 import { DEFAULT_THEME, GRADIENT_PRESETS, AVATAR_COLLECTION } from '../constants';
 import CardPreview from '../components/CardPreview';
@@ -247,9 +248,70 @@ const EditorPage: React.FC = () => {
                                        ))}
                                     </div>
                                  </div>
+
                                  <div className="space-y-4 p-8 bg-slate-50 rounded-3xl border border-slate-100">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Brand Mark / Institution Logo (URL)</label>
-                                    <input type="text" placeholder="https://institution.com/brand-logo.png" value={cardData.brandLogo} onChange={(e) => setCardData(prev => ({ ...prev, brandLogo: e.target.value }))} className="w-full bg-white border border-slate-200 rounded-2xl px-6 py-4 text-xs font-bold outline-none focus:border-amber-500 transition-colors" />
+                                    <div className="flex items-center justify-between">
+                                       <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Custom Profile Image</label>
+                                       <span className="text-[8px] font-bold text-slate-300 uppercase tracking-widest">Max 2MB</span>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                       <div className="relative flex-1">
+                                          <input
+                                             type="file"
+                                             accept="image/*"
+                                             onChange={async (e) => {
+                                                const file = e.target.files?.[0];
+                                                if (!file) return;
+                                                try {
+                                                   setLoading(true);
+                                                   const url = await StorageService.uploadImage(file, 'profiles');
+                                                   setCardData(prev => ({ ...prev, profileImage: url }));
+                                                } catch (err) {
+                                                   alert('Upload failed. Ensure "images" bucket exists and is public.');
+                                                } finally {
+                                                   setLoading(false);
+                                                }
+                                             }}
+                                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                          />
+                                          <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl px-6 py-4 text-xs font-bold text-slate-400 text-center hover:border-amber-400 hover:text-amber-500 transition-all">
+                                             {loading ? 'Uploading...' : 'Click to Upload Custom Photo'}
+                                          </div>
+                                       </div>
+                                       {cardData.profileImage && !cardData.profileImage.includes('dicebear') && (
+                                          <div className="w-12 h-12 rounded-xl bg-cover bg-center shadow-lg border-2 border-white" style={{ backgroundImage: `url(${cardData.profileImage})` }} />
+                                       )}
+                                    </div>
+                                 </div>
+
+                                 <div className="space-y-4 p-8 bg-slate-50 rounded-3xl border border-slate-100">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Brand Mark / Institution Logo</label>
+                                    <div className="flex gap-4">
+                                       <div className="relative flex-1">
+                                          <input
+                                             type="file"
+                                             accept="image/*"
+                                             onChange={async (e) => {
+                                                const file = e.target.files?.[0];
+                                                if (!file) return;
+                                                try {
+                                                   setLoading(true);
+                                                   const url = await StorageService.uploadImage(file, 'brands');
+                                                   setCardData(prev => ({ ...prev, brandLogo: url }));
+                                                } catch (err) {
+                                                   alert('Upload failed.');
+                                                } finally {
+                                                   setLoading(false);
+                                                }
+                                             }}
+                                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                          />
+                                          <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl px-6 py-4 text-xs font-bold text-slate-400 text-center hover:border-amber-400 hover:text-amber-500 transition-all">
+                                             {loading ? 'Uploading...' : 'Upload Logo File'}
+                                          </div>
+                                       </div>
+                                       <input type="text" placeholder="OR paste URL..." value={cardData.brandLogo} onChange={(e) => setCardData(prev => ({ ...prev, brandLogo: e.target.value }))} className="flex-1 bg-white border border-slate-200 rounded-2xl px-6 py-4 text-xs font-bold outline-none focus:border-amber-500 transition-colors" />
+                                    </div>
                                  </div>
                               </div>
                            </section>
