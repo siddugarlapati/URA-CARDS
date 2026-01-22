@@ -59,7 +59,7 @@ export const authApi = {
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
-            .single();
+            .maybeSingle();
 
         if (profile) {
             return {
@@ -93,7 +93,7 @@ export const authApi = {
                     .from('profiles')
                     .select('*')
                     .eq('id', session.user.id)
-                    .single();
+                    .maybeSingle();
 
                 if (profile) {
                     callback({
