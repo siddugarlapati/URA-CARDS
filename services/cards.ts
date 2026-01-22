@@ -3,46 +3,51 @@ import { supabase } from './supabase';
 import { CardData, ThemeSettings, SocialLinks, CustomField } from '../types';
 import { DEFAULT_THEME } from '../constants';
 
+
+import { supabase } from './supabase';
+import { CardData, ThemeSettings, SocialLinks, CustomField } from '../types';
+import { DEFAULT_THEME } from '../constants';
+
 export const CardService = {
     // Mapper: DB -> Frontend
     mapToCardData(dbCard: any): CardData {
-        const content = dbCard.content || {};
         return {
             id: dbCard.id,
             userId: dbCard.user_id,
-            usernameSlug: dbCard.slug,
+            usernameSlug: dbCard.username_slug, // Changed from slug
             theme: dbCard.theme || DEFAULT_THEME,
-            // Spread content fields
-            name: content.name || '',
-            role: content.role || '',
-            company: content.company || '',
-            phone: content.phone || '',
-            isPhonePrivate: content.isPhonePrivate ?? true,
-            email: content.email || '',
-            isEmailPrivate: content.isEmailPrivate ?? true,
-            website: content.website || '',
-            address: content.address || '',
-            bio: content.bio || '',
-            profileImage: content.profileImage || '',
-            brandLogo: content.brandLogo || '',
-            primaryCTA: content.primaryCTA || 'save_contact',
-            customFields: content.customFields || [],
-            socialLinks: content.socialLinks || { custom: [] },
-            isPrivate: !dbCard.is_public,
 
-            // Stats (fetched separately or from counts, default to 0 for now)
+            // Flat columns
+            name: dbCard.name || '',
+            role: dbCard.role || '',
+            company: dbCard.company || '',
+            phone: dbCard.phone || '',
+            isPhonePrivate: dbCard.is_phone_private ?? true,
+            email: dbCard.email || '',
+            isEmailPrivate: dbCard.is_email_private ?? true,
+            website: dbCard.website || '',
+            address: dbCard.address || '',
+            bio: dbCard.bio || '',
+            profileImage: dbCard.profile_image || '',
+            brandLogo: dbCard.brand_logo || '',
+            primaryCTA: dbCard.primary_cta || 'save_contact',
+            customFields: dbCard.custom_fields || [],
+            socialLinks: dbCard.social_links || { custom: [] },
+            isPrivate: dbCard.is_private || false, // Changed from !is_public
+
+            // Stats
             views: dbCard.views || 0,
-            clicks: 0,
-            scans: 0,
-            followers: 0,
-            mutuals: 0,
+            clicks: dbCard.clicks || 0,
+            scans: dbCard.scans || 0,
+            followers: dbCard.followers || 0,
+            mutuals: dbCard.mutuals || 0,
             linkedinVelocity: 0,
             retentionRate: 0,
             analyticsHistory: [],
             linkAnalytics: {},
 
             createdAt: dbCard.created_at,
-            updatedAt: dbCard.created_at // specific update time if column exists
+            updatedAt: dbCard.updated_at
         };
     },
 
@@ -72,42 +77,38 @@ export const CardService = {
         const { data, error } = await supabase
             .from('cards')
             .select('*')
-            .eq('slug', slug)
+            .eq('username_slug', slug) // Changed from slug
             .single();
 
-        if (error) return null; // Handle not found gracefully
+        if (error) return null;
         return this.mapToCardData(data);
     },
 
     async createCard(userId: string, card: Partial<CardData>): Promise<CardData> {
-        // Extract content from flat card object
-        const content = {
-            name: card.name,
-            role: card.role,
-            company: card.company,
-            phone: card.phone,
-            isPhonePrivate: card.isPhonePrivate,
-            email: card.email,
-            isEmailPrivate: card.isEmailPrivate,
-            website: card.website,
-            address: card.address,
-            bio: card.bio,
-            profileImage: card.profileImage,
-            brandLogo: card.brandLogo,
-            primaryCTA: card.primaryCTA,
-            customFields: card.customFields,
-            socialLinks: card.socialLinks,
-        };
-
         const { data, error } = await supabase
             .from('cards')
             .insert([
                 {
                     user_id: userId,
-                    slug: card.usernameSlug,
+                    username_slug: card.usernameSlug,
                     theme: card.theme,
-                    content: content,
-                    is_public: !card.isPrivate
+                    // Flat columns
+                    name: card.name,
+                    role: card.role,
+                    company: card.company,
+                    phone: card.phone,
+                    is_phone_private: card.isPhonePrivate,
+                    email: card.email,
+                    is_email_private: card.isEmailPrivate,
+                    website: card.website,
+                    address: card.address,
+                    bio: card.bio,
+                    profile_image: card.profileImage,
+                    brand_logo: card.brandLogo,
+                    primary_cta: card.primaryCTA,
+                    custom_fields: card.customFields,
+                    social_links: card.socialLinks,
+                    is_private: card.isPrivate
                 }
             ])
             .select()
@@ -118,47 +119,30 @@ export const CardService = {
     },
 
     async updateCard(cardId: string, updates: Partial<CardData>): Promise<CardData> {
-        // Need to fetch existing to merge content? Or just update what's passed?
-        // For simplicity, let's assume we are passing full content or merging on partials is tricky with JSONB.
-        // We'll update only the top level columns and specific content keys if needed.
-        // But typically update sends the whole state from the editor.
-
-        const content = {
-            name: updates.name,
-            role: updates.role,
-            company: updates.company,
-            phone: updates.phone,
-            isPhonePrivate: updates.isPhonePrivate,
-            email: updates.email,
-            isEmailPrivate: updates.isEmailPrivate,
-            website: updates.website,
-            address: updates.address,
-            bio: updates.bio,
-            profileImage: updates.profileImage,
-            brandLogo: updates.brandLogo,
-            primaryCTA: updates.primaryCTA,
-            customFields: updates.customFields,
-            socialLinks: updates.socialLinks,
-        };
-
         const dbUpdates: any = {};
-        if (updates.usernameSlug) dbUpdates.slug = updates.usernameSlug;
+
+        if (updates.usernameSlug) dbUpdates.username_slug = updates.usernameSlug;
         if (updates.theme) dbUpdates.theme = updates.theme;
-        if (updates.isPrivate !== undefined) dbUpdates.is_public = !updates.isPrivate;
-        // We merge content carefully or overwrite. Let's overwrite content for now as editor holds state.
-        // Filter out undefineds from content to avoid clearing valid data if partial
-        const cleanContent = Object.fromEntries(Object.entries(content).filter(([_, v]) => v !== undefined));
+        if (updates.isPrivate !== undefined) dbUpdates.is_private = updates.isPrivate;
 
-        // Ideally we should do a deep merge or fetch-then-update.
-        // For this task, let's assume `updates` usually comes from 'save' full object.
-        // If `updates` is partial, we might lose data if we overwrite `content`.
-        // Let's do a patch:
+        // Map other fields directly
+        if (updates.name !== undefined) dbUpdates.name = updates.name;
+        if (updates.role !== undefined) dbUpdates.role = updates.role;
+        if (updates.company !== undefined) dbUpdates.company = updates.company;
+        if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
+        if (updates.isPhonePrivate !== undefined) dbUpdates.is_phone_private = updates.isPhonePrivate;
+        if (updates.email !== undefined) dbUpdates.email = updates.email;
+        if (updates.isEmailPrivate !== undefined) dbUpdates.is_email_private = updates.isEmailPrivate;
+        if (updates.website !== undefined) dbUpdates.website = updates.website;
+        if (updates.address !== undefined) dbUpdates.address = updates.address;
+        if (updates.bio !== undefined) dbUpdates.bio = updates.bio;
+        if (updates.profileImage !== undefined) dbUpdates.profile_image = updates.profileImage;
+        if (updates.brandLogo !== undefined) dbUpdates.brand_logo = updates.brandLogo;
+        if (updates.primaryCTA !== undefined) dbUpdates.primary_cta = updates.primaryCTA;
+        if (updates.customFields !== undefined) dbUpdates.custom_fields = updates.customFields;
+        if (updates.socialLinks !== undefined) dbUpdates.social_links = updates.socialLinks;
 
-        // First fetch current
-        const { data: current } = await supabase.from('cards').select('content').eq('id', cardId).single();
-        const newContent = { ...(current?.content || {}), ...cleanContent };
-
-        dbUpdates.content = newContent;
+        dbUpdates.updated_at = new Date().toISOString();
 
         const { data, error } = await supabase
             .from('cards')
