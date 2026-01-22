@@ -11,7 +11,7 @@ import ScannerPage from './pages/ScannerPage';
 import AuthPage from './pages/AuthPage';
 import SettingsPage from './pages/SettingsPage';
 import LuxeDropPage from './pages/LuxeDropPage';
-import { mockApi } from './services/mockApi';
+import { authApi } from './services/auth';
 import { User } from './types';
 
 const App: React.FC = () => {
@@ -22,7 +22,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const currentUser = await mockApi.getCurrentUser();
+        const currentUser = await authApi.getCurrentUser();
         setUser(currentUser);
       } catch (err) {
         setUser(null);
@@ -46,11 +46,11 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col relative overflow-x-hidden">
-      {!isStandalone && !isPublicCard && <Navbar user={user} onLogout={() => {
-        mockApi.logout();
+      {!isStandalone && !isPublicCard && <Navbar user={user} onLogout={async () => {
+        await authApi.signOut();
         setUser(null);
       }} />}
-      
+
       <main className="flex-grow">
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
@@ -58,16 +58,16 @@ const App: React.FC = () => {
             <Route path="/auth" element={user ? <Navigate to="/dashboard" /> : <AuthPage onAuthSuccess={setUser} />} />
             <Route path="/scan" element={<ScannerPage />} />
             <Route path="/drop" element={<LuxeDropPage />} />
-            
+
             {/* Protected Routes */}
             <Route path="/dashboard" element={user ? <DashboardPage /> : <Navigate to="/auth" />} />
             <Route path="/editor" element={user ? <EditorPage /> : <Navigate to="/auth" />} />
             <Route path="/editor/:id" element={user ? <EditorPage /> : <Navigate to="/auth" />} />
             <Route path="/settings" element={user ? <SettingsPage user={user} onUpdate={setUser} /> : <Navigate to="/auth" />} />
-            
+
             {/* Public Card Route */}
             <Route path="/card/:username" element={<PublicCardPage />} />
-            
+
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
         </AnimatePresence>

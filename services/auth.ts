@@ -1,8 +1,17 @@
 import { supabase } from './supabase';
 import { User } from '../types';
 
+const checkConfig = () => {
+    const url = import.meta.env.VITE_SUPABASE_URL;
+    const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    if (!url || url.includes('YOUR_SUPABASE_URL') || !key || key.includes('YOUR_SUPABASE_ANON_KEY')) {
+        throw new Error('Supabase not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local');
+    }
+};
+
 export const authApi = {
     async signUp(email: string, password: string, fullName: string) {
+        checkConfig();
         const { data, error } = await supabase.auth.signUp({
             email,
             password,
@@ -19,6 +28,7 @@ export const authApi = {
     },
 
     async signIn(email: string, password: string) {
+        checkConfig();
         const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password
@@ -51,7 +61,8 @@ export const authApi = {
             name: profile.full_name,
             email: profile.email,
             avatar: profile.avatar_url,
-            role: profile.role
+            role: profile.role,
+            createdAt: profile.created_at || new Date().toISOString()
         } as User;
     },
 
@@ -73,7 +84,8 @@ export const authApi = {
                         name: profile.full_name,
                         email: profile.email,
                         avatar: profile.avatar_url,
-                        role: profile.role
+                        role: profile.role,
+                        createdAt: profile.created_at || new Date().toISOString()
                     } as User);
                 } else {
                     // Fallback if profile doesn't exist yet (race condition on signup)
@@ -82,7 +94,8 @@ export const authApi = {
                         name: session.user.user_metadata.full_name,
                         email: session.user.email || '',
                         avatar: session.user.user_metadata.avatar_url,
-                        role: 'user'
+                        role: 'user',
+                        createdAt: session.user.created_at || new Date().toISOString()
                     } as User);
                 }
             } else {

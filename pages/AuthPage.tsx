@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { mockApi } from '../services/mockApi';
+import { authApi } from '../services/auth';
 import { User } from '../types';
 import { Mail, Lock, User as UserIcon, ArrowRight, Sparkles } from 'lucide-react';
 
@@ -19,8 +19,14 @@ const AuthPage: React.FC<Props> = ({ onAuthSuccess }) => {
     e.preventDefault();
     setLoading(true); setError('');
     try {
-      const user = isLogin ? await mockApi.login(formData.email, formData.password) : await mockApi.signup(formData.name, formData.email, formData.password);
-      onAuthSuccess(user);
+      const user = isLogin ? await authApi.signIn(formData.email, formData.password) : await authApi.signUp(formData.email, formData.password, formData.name);
+      // authApi returns session/user data structure, but onAuthSuccess expects User type
+      // authApi.signIn returns { user, session }
+      // We need to fetch the full user profile or just pass compatible object
+      // Actually authApi.getCurrentUser returns Promise<User | null>
+      // Let's just reload or fetch user
+      const currentUser = await authApi.getCurrentUser();
+      if (currentUser) onAuthSuccess(currentUser);
     } catch (err: any) { setError(err.message); } finally { setLoading(false); }
   };
 

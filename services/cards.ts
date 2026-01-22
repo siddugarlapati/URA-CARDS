@@ -57,6 +57,17 @@ export const CardService = {
         return (data || []).map(this.mapToCardData);
     },
 
+    async getCardById(id: string): Promise<CardData | null> {
+        const { data, error } = await supabase
+            .from('cards')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (error) return null;
+        return this.mapToCardData(data);
+    },
+
     async getCardBySlug(slug: string): Promise<CardData | null> {
         const { data, error } = await supabase
             .from('cards')

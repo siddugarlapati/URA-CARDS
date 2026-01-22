@@ -179,7 +179,14 @@ const CardPreview: React.FC<Props> = ({ data, scale = 1, interactive = true, isF
             const url = data.socialLinks?.[key as keyof SocialLinks];
             if (!url || typeof url !== 'string' || url.length < 3) return null;
             return (
-              <a key={key} href={url} target="_blank" rel="noopener noreferrer" className="aspect-square bg-white shadow-sm rounded-[2rem] flex items-center justify-center text-slate-950 hover:bg-slate-950 hover:text-white transition-all transform hover:-translate-y-1.5 active:scale-90 border border-slate-950/5">
+              <a
+                key={key}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => onLinkClick?.(key, url)}
+                className="aspect-square bg-white shadow-sm rounded-[2rem] flex items-center justify-center text-slate-950 hover:bg-slate-950 hover:text-white transition-all transform hover:-translate-y-1.5 active:scale-90 border border-slate-950/5"
+              >
                 <Icon className="w-5.5 h-5.5" />
               </a>
             );
@@ -188,6 +195,7 @@ const CardPreview: React.FC<Props> = ({ data, scale = 1, interactive = true, isF
 
         <motion.button
           whileTap={{ scale: 0.95 }}
+          onClick={() => onLinkClick?.('primary_cta', data.primaryCTA)}
           className={`mt-auto w-full py-7 font-black text-white shadow-[0_30px_60px_-15px_rgba(2,6,23,0.4)] flex items-center justify-center space-x-3 transition-all ${theme.buttonStyle === 'pill' ? 'rounded-full' : 'rounded-[2.5rem]'}`}
           style={{ backgroundColor: theme.primaryColor || '#020617' }}
         >
