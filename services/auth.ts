@@ -61,15 +61,25 @@ export const authApi = {
             .eq('id', session.user.id)
             .single();
 
-        if (!profile) return null;
+        if (profile) {
+            return {
+                id: profile.id,
+                name: profile.full_name,
+                email: profile.email,
+                avatar: profile.avatar_url,
+                role: profile.role,
+                createdAt: profile.created_at || new Date().toISOString()
+            } as User;
+        }
 
+        // Fallback if profile doesn't exist (e.g. trigger failed or not run)
         return {
-            id: profile.id,
-            name: profile.full_name,
-            email: profile.email,
-            avatar: profile.avatar_url,
-            role: profile.role,
-            createdAt: profile.created_at || new Date().toISOString()
+            id: session.user.id,
+            name: session.user.user_metadata?.full_name || 'User',
+            email: session.user.email || '',
+            avatar: session.user.user_metadata?.avatar_url,
+            role: 'user',
+            createdAt: session.user.created_at || new Date().toISOString()
         } as User;
     },
 

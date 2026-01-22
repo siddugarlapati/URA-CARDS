@@ -19,14 +19,14 @@ const AuthPage: React.FC<Props> = ({ onAuthSuccess }) => {
     e.preventDefault();
     setLoading(true); setError('');
     try {
-      const user = isLogin ? await authApi.signIn(formData.email, formData.password) : await authApi.signUp(formData.email, formData.password, formData.name);
-      // authApi returns session/user data structure, but onAuthSuccess expects User type
-      // authApi.signIn returns { user, session }
-      // We need to fetch the full user profile or just pass compatible object
-      // Actually authApi.getCurrentUser returns Promise<User | null>
-      // Let's just reload or fetch user
+      const authResponse = isLogin ? await authApi.signIn(formData.email, formData.password) : await authApi.signUp(formData.email, formData.password, formData.name);
+
       const currentUser = await authApi.getCurrentUser();
-      if (currentUser) onAuthSuccess(currentUser);
+      if (currentUser) {
+        onAuthSuccess(currentUser);
+      } else if (!isLogin && authResponse?.user && !authResponse?.session) {
+        setError("Please check your email to confirm your account.");
+      }
     } catch (err: any) { setError(err.message); } finally { setLoading(false); }
   };
 
