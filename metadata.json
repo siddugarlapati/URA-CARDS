@@ -1,0 +1,7 @@
+{
+  "name": "Copy of LuxeCard - Premium Digital Business Cards",
+  "description": "A high-end digital business card platform with real-time editing, glassmorphic UI, and instant QR code sharing.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
