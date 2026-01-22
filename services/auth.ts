@@ -4,7 +4,14 @@ import { User } from '../types';
 const checkConfig = () => {
     const url = import.meta.env.VITE_SUPABASE_URL;
     const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
     if (!url || url.includes('YOUR_SUPABASE_URL') || !key || key.includes('YOUR_SUPABASE_ANON_KEY')) {
+        console.error("CRITICAL CONFIG ERROR:", {
+            VITE_SUPABASE_URL: url || '(undefined)',
+            VITE_SUPABASE_ANON_KEY: key ? (key.substring(0, 5) + '...') : '(undefined)',
+            Environment: import.meta.env.MODE,
+            BaseURL: import.meta.env.BASE_URL
+        });
         throw new Error('Supabase not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local');
     }
 };
