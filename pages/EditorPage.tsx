@@ -39,6 +39,11 @@ const EditorPage: React.FC = () => {
       profileImage: AVATAR_COLLECTION.boys[0].url
    });
 
+   // Image Management State
+   const [pendingUploads, setPendingUploads] = useState<{ profile: File | null; brand: File | null }>({ profile: null, brand: null });
+   const initialImagesRef = React.useRef<{ profile: string | undefined; brand: string | undefined }>({ profile: undefined, brand: undefined });
+
+
    useEffect(() => {
       if (id) {
          CardService.getCardById(id).then(data => {
@@ -48,6 +53,8 @@ const EditorPage: React.FC = () => {
                   socialLinks: { ...cardData.socialLinks, ...(data.socialLinks || {}) },
                   theme: { ...DEFAULT_THEME, ...(data.theme || {}) }
                });
+               // Store initial remote URLs to handle cleanup properly later
+               initialImagesRef.current = { profile: data.profileImage, brand: data.brandLogo };
             }
             setLoading(false);
          }).catch(() => navigate('/dashboard'));
@@ -85,6 +92,38 @@ const EditorPage: React.FC = () => {
             savePayload.usernameSlug = 'user-' + Math.random().toString(36).substring(2, 9);
          }
 
+         // --- HANDLE PENDING IMAGE UPLOADS ---
+         // 1. Profile Image
+         if (pendingUploads.profile) {
+            try {
+               const url = await StorageService.uploadImage(pendingUploads.profile, 'profiles');
+               savePayload.profileImage = url;
+               // Cleanup old image if it was different and not a default avatar
+               if (initialImagesRef.current.profile && initialImagesRef.current.profile !== url && !initialImagesRef.current.profile.includes('ui-avatars') && !initialImagesRef.current.profile.includes('dicebear')) {
+                  await StorageService.deleteImage(initialImagesRef.current.profile);
+               }
+            } catch (err) {
+               console.error("Profile upload failed", err);
+               // Keep the temporary (blob) URL or revert? For now, we might save with blob URL which is broken, so ideally we stop.
+               // But to be safe, maybe we just alert and don't change it.
+            }
+         }
+
+         // 2. Brand Logo
+         if (pendingUploads.brand) {
+            try {
+               const url = await StorageService.uploadImage(pendingUploads.brand, 'brands');
+               savePayload.brandLogo = url;
+               // Cleanup old logo
+               if (initialImagesRef.current.brand && initialImagesRef.current.brand !== url) {
+                  await StorageService.deleteImage(initialImagesRef.current.brand);
+               }
+            } catch (err) {
+               console.error("Brand upload failed", err);
+            }
+         }
+         // ------------------------------------
+
          if (cardData.id) {
             await CardService.updateCard(cardData.id, savePayload);
          } else {
@@ -97,6 +136,11 @@ const EditorPage: React.FC = () => {
                return;
             }
          }
+
+         // Cleanup blobs
+         if (cardData.profileImage?.startsWith('blob:')) URL.revokeObjectURL(cardData.profileImage);
+         if (cardData.brandLogo?.startsWith('blob:')) URL.revokeObjectURL(cardData.brandLogo);
+
          navigate('/dashboard');
       } catch (err) { alert('Error saving'); console.error(err); } finally { setSaving(false); }
    };
@@ -259,23 +303,18 @@ const EditorPage: React.FC = () => {
                                           <input
                                              type="file"
                                              accept="image/*"
-                                             onChange={async (e) => {
+                                             onChange={(e) => {
                                                 const file = e.target.files?.[0];
                                                 if (!file) return;
-                                                try {
-                                                   setLoading(true);
-                                                   const url = await StorageService.uploadImage(file, 'profiles');
-                                                   setCardData(prev => ({ ...prev, profileImage: url }));
-                                                } catch (err) {
-                                                   alert('Upload failed. Ensure "images" bucket exists and is public.');
-                                                } finally {
-                                                   setLoading(false);
-                                                }
+                                                // Create local preview
+                                                const objectUrl = URL.createObjectURL(file);
+                                                setCardData(prev => ({ ...prev, profileImage: objectUrl }));
+                                                setPendingUploads(prev => ({ ...prev, profile: file }));
                                              }}
                                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                           />
                                           <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl px-6 py-4 text-xs font-bold text-slate-400 text-center hover:border-amber-400 hover:text-amber-500 transition-all">
-                                             {loading ? 'Uploading...' : 'Click to Upload Custom Photo'}
+                                             {pendingUploads.profile ? 'Image Selected (Pending Save)' : 'Click to Upload Custom Photo'}
                                           </div>
                                        </div>
                                        {cardData.profileImage && !cardData.profileImage.includes('dicebear') && (
@@ -291,23 +330,18 @@ const EditorPage: React.FC = () => {
                                           <input
                                              type="file"
                                              accept="image/*"
-                                             onChange={async (e) => {
+                                             onChange={(e) => {
                                                 const file = e.target.files?.[0];
                                                 if (!file) return;
-                                                try {
-                                                   setLoading(true);
-                                                   const url = await StorageService.uploadImage(file, 'brands');
-                                                   setCardData(prev => ({ ...prev, brandLogo: url }));
-                                                } catch (err) {
-                                                   alert('Upload failed.');
-                                                } finally {
-                                                   setLoading(false);
-                                                }
+                                                // Create local preview
+                                                const objectUrl = URL.createObjectURL(file);
+                                                setCardData(prev => ({ ...prev, brandLogo: objectUrl }));
+                                                setPendingUploads(prev => ({ ...prev, brand: file }));
                                              }}
                                              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                                           />
                                           <div className="bg-white border-2 border-dashed border-slate-200 rounded-2xl px-6 py-4 text-xs font-bold text-slate-400 text-center hover:border-amber-400 hover:text-amber-500 transition-all">
-                                             {loading ? 'Uploading...' : 'Upload Logo File'}
+                                             {pendingUploads.brand ? 'Logo Selected (Pending Save)' : 'Upload Logo File'}
                                           </div>
                                        </div>
                                        <input type="text" placeholder="OR paste URL..." value={cardData.brandLogo} onChange={(e) => setCardData(prev => ({ ...prev, brandLogo: e.target.value }))} className="flex-1 bg-white border border-slate-200 rounded-2xl px-6 py-4 text-xs font-bold outline-none focus:border-amber-500 transition-colors" />

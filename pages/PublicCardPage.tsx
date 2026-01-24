@@ -58,47 +58,49 @@ const PublicCardPage: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen py-16 px-8 flex flex-col items-center justify-center relative bg-white overflow-hidden">
+    <div className="min-h-screen py-16 px-6 flex flex-col items-center justify-center relative bg-white overflow-hidden">
       {/* Dynamic Background */}
-      <div className="absolute inset-0 opacity-5 pointer-events-none overflow-hidden select-none">
-        <h1 className="text-[30vw] font-black text-slate-950 leading-none rotate-[-15deg] whitespace-nowrap uppercase tracking-tighter">URA NETWORK</h1>
+      <div className="absolute inset-0 opacity-5 pointer-events-none overflow-hidden select-none flex items-center justify-center">
+        <h1 className="text-[20vw] md:text-[30vw] font-black text-slate-950 leading-none rotate-[-15deg] whitespace-nowrap uppercase tracking-tighter">URA NETWORK</h1>
       </div>
 
-      <div className="fixed top-12 left-12 flex items-center gap-3 z-50">
-        <Hexagon className="w-10 h-10 text-slate-950 fill-current" />
-        <span className="text-2xl font-black font-outfit text-slate-950 tracking-tighter uppercase">URA</span>
+      <div className="fixed top-8 left-8 md:top-12 md:left-12 flex items-center gap-3 z-50">
+        <Hexagon className="w-8 h-8 md:w-10 md:h-10 text-slate-950 fill-current" />
+        <span className="text-xl md:text-2xl font-black font-outfit text-slate-950 tracking-tighter uppercase">URA</span>
       </div>
 
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-        className="z-10 w-full flex flex-col items-center"
+        className="z-10 w-full flex flex-col items-center max-w-full"
       >
-        <div className="mb-14 flex flex-col items-center text-center">
-          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-slate-50 border border-slate-100 mb-8 shadow-sm">
-            <ShieldCheck className="w-4 h-4 text-emerald-500" />
-            <span className="text-[10px] font-black text-slate-950 uppercase tracking-widest">Verified Institutional Identity</span>
+        <div className="mb-10 md:mb-14 flex flex-col items-center text-center px-4">
+          <div className="inline-flex items-center gap-2 px-4 md:px-5 py-2 rounded-full bg-slate-50 border border-slate-100 mb-6 md:mb-8 shadow-sm">
+            <ShieldCheck className="w-3.5 h-3.5 md:w-4 md:h-4 text-emerald-500" />
+            <span className="text-[9px] md:text-[10px] font-black text-slate-950 uppercase tracking-widest">Verified Institutional Identity</span>
           </div>
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.4em] mb-3 italic">Discovering profile of</p>
-          <h2 className="text-5xl md:text-6xl font-black font-outfit text-slate-950 uppercase tracking-tighter leading-none">{card.name}</h2>
+          <p className="text-[10px] md:text-xs font-bold text-slate-400 uppercase tracking-[0.4em] mb-3 italic">Discovering profile of</p>
+          <h2 className="text-4xl md:text-6xl font-black font-outfit text-slate-950 uppercase tracking-tighter leading-none">{card.name}</h2>
         </div>
 
-        <CardPreview data={card} onLinkClick={handleLinkClick} />
+        <div className="w-full flex justify-center px-2">
+          <CardPreview data={card} onLinkClick={handleLinkClick} />
+        </div>
 
-        <div className="mt-20 flex flex-col items-center space-y-12 w-full max-w-sm">
-          <Link to="/auth" className="group w-full flex items-center justify-center space-x-4 bg-slate-950 text-white px-10 py-6 rounded-[2.5rem] shadow-[0_40px_80px_-20px_rgba(2,6,23,0.3)] transition-all hover:scale-105">
-            <Sparkles className="w-6 h-6 text-amber-500" />
-            <span className="font-black text-sm uppercase tracking-widest">Join the Network</span>
-            <ArrowUpRight className="w-5 h-5 text-white/40" />
+        <div className="mt-16 md:mt-20 flex flex-col items-center space-y-8 md:space-y-12 w-full max-w-sm px-4">
+          <Link to="/auth" className="group w-full flex items-center justify-center space-x-4 bg-slate-950 text-white px-8 md:px-10 py-5 md:py-6 rounded-[2.5rem] shadow-[0_40px_80px_-20px_rgba(2,6,23,0.3)] transition-all hover:scale-105 active:scale-95">
+            <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-amber-500" />
+            <span className="font-black text-xs md:text-sm uppercase tracking-widest">Join the Network</span>
+            <ArrowUpRight className="w-4 h-4 md:w-5 md:h-5 text-white/40" />
           </Link>
 
-          <div className="flex flex-col items-center gap-6">
-            <div className="flex items-center gap-8 text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">
+          <div className="flex flex-col items-center gap-4 md:gap-6">
+            <div className="flex flex-wrap justify-center gap-4 md:gap-8 text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">
               <span className="flex items-center gap-2"><Lock className="w-3.5 h-3.5" /> Encrypted Vault</span>
               <span className="flex items-center gap-2"><Users className="w-3.5 h-3.5" /> 2.4k Mutuals</span>
             </div>
-            <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">Private fields visible only to selected members</p>
+            <p className="text-[9px] md:text-[10px] text-slate-300 font-bold uppercase tracking-widest text-center">Private fields visible only to selected members</p>
           </div>
         </div>
       </motion.div>

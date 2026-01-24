@@ -86,7 +86,7 @@ const CardPreview: React.FC<Props> = ({ data, scale = 1, interactive = true, isF
 
   return (
     <motion.div
-      className="relative mx-auto w-full max-w-[340px] aspect-[9/16] p-3 bg-white group select-none overflow-hidden border border-slate-900/5 shadow-[0_60px_120px_-30px_rgba(2,6,23,0.3)]"
+      className="relative mx-auto w-full max-w-[340px] aspect-[9/16] p-3 bg-white group select-none overflow-hidden border border-slate-900/5 shadow-[0_60px_120px_-30px_rgba(2,6,23,0.3)] shrink-0"
       style={{
         scale,
         borderRadius: bRadius + 14,
