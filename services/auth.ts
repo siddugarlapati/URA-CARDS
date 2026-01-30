@@ -64,6 +64,7 @@ export const authApi = {
         if (profile) {
             return {
                 id: profile.id,
+                uniqueId: profile.unique_id,
                 name: profile.full_name,
                 email: profile.email,
                 avatar: profile.avatar_url,
@@ -75,6 +76,7 @@ export const authApi = {
         // Fallback if profile doesn't exist (e.g. trigger failed or not run)
         return {
             id: session.user.id,
+            uniqueId: session.user.user_metadata?.unique_id,
             name: session.user.user_metadata?.full_name || 'User',
             email: session.user.email || '',
             avatar: session.user.user_metadata?.avatar_url,
@@ -98,6 +100,7 @@ export const authApi = {
                 if (profile) {
                     callback({
                         id: profile.id,
+                        uniqueId: profile.unique_id,
                         name: profile.full_name,
                         email: profile.email,
                         avatar: profile.avatar_url,
@@ -108,6 +111,7 @@ export const authApi = {
                     // Fallback if profile doesn't exist yet (race condition on signup)
                     callback({
                         id: session.user.id,
+                        uniqueId: session.user.user_metadata?.unique_id,
                         name: session.user.user_metadata.full_name,
                         email: session.user.email || '',
                         avatar: session.user.user_metadata.avatar_url,

@@ -10,7 +10,7 @@ import PublicCardPage from './pages/PublicCardPage';
 import ScannerPage from './pages/ScannerPage';
 import AuthPage from './pages/AuthPage';
 import SettingsPage from './pages/SettingsPage';
-import LuxeDropPage from './pages/LuxeDropPage';
+
 import { authApi } from './services/auth';
 import { User } from './types';
 
@@ -41,7 +41,7 @@ const App: React.FC = () => {
     );
   }
 
-  const isStandalone = location.pathname === '/scan' || location.pathname === '/drop';
+  const isStandalone = location.pathname === '/scan';
   const isPublicCard = location.pathname.startsWith('/card/');
 
   return (
@@ -57,7 +57,6 @@ const App: React.FC = () => {
             <Route path="/" element={<LandingPage />} />
             <Route path="/auth" element={user ? <Navigate to="/dashboard" /> : <AuthPage onAuthSuccess={setUser} />} />
             <Route path="/scan" element={<ScannerPage />} />
-            <Route path="/drop" element={<LuxeDropPage />} />
 
             {/* Protected Routes */}
             <Route path="/dashboard" element={user ? <DashboardPage /> : <Navigate to="/auth" />} />

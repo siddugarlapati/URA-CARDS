@@ -4,8 +4,10 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CardService } from '../services/cards';
 import { AnalyticsService } from '../services/analytics';
+import { FriendsService } from '../services/friends';
 import { authApi } from '../services/auth';
-import { CardData } from '../types';
+import { CardData, User, Friend } from '../types';
+import QRCodeDisplay from '../components/QRCodeDisplay';
 import {
   Plus, Eye, Share2, ArrowUpRight,
   Settings, BarChart2,
@@ -19,9 +21,11 @@ const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<'cards' | 'intelligence'>('cards');
   const [showQr, setShowQr] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [friends, setFriends] = useState<Friend[]>([]);
   const navigate = useNavigate();
 
-  useEffect(() => { loadCards(); }, []);
+  useEffect(() => { loadCards(); loadFriends(); }, []);
 
 
   const loadCards = async () => {
@@ -33,6 +37,7 @@ const DashboardPage: React.FC = () => {
         setCards([]);
         return;
       }
+      setCurrentUser(user);
       const data = await CardService.getUserCards(user.id);
 
       // Load analytics for the primary card if exists
@@ -85,6 +90,15 @@ const DashboardPage: React.FC = () => {
     } catch (err) { console.error(err); } finally { setLoading(false); }
   };
 
+  const loadFriends = async () => {
+    try {
+      const friendsList = await FriendsService.getFriends();
+      setFriends(friendsList);
+    } catch (err) {
+      console.error('Error loading friends:', err);
+    }
+  };
+
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center space-y-6">
       <div className="w-14 h-14 border-[5px] border-slate-100 border-t-amber-500 rounded-full animate-spin" />
@@ -116,10 +130,6 @@ const DashboardPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-6 w-full lg:w-auto">
-          <motion.button whileHover={{ scale: 1.05 }} onClick={() => navigate('/drop')}
-            className="flex-1 lg:flex-none px-10 py-5 bg-amber-600 text-white rounded-2xl font-black flex items-center justify-center gap-4 shadow-2xl shadow-amber-600/20 text-xs uppercase tracking-widest">
-            <Wifi className="w-5 h-5" /><span>LuxeDrop</span>
-          </motion.button>
           <motion.button whileHover={{ scale: 1.05 }} onClick={() => navigate('/scan')}
             className="flex-1 lg:flex-none px-10 py-5 bg-slate-950 text-white rounded-2xl font-black flex items-center justify-center gap-4 shadow-2xl text-xs uppercase tracking-widest">
             <Scan className="w-5 h-5" /><span>Scanner</span>
@@ -168,14 +178,12 @@ const DashboardPage: React.FC = () => {
 
                     <div className="absolute inset-0 [backface-visibility:hidden] [transform:rotateY(180deg)] bento-card p-12 flex flex-col items-center justify-center bg-slate-950 text-white shadow-2xl border-white/5">
                       <button onClick={() => setShowQr(false)} className="absolute top-10 right-10 text-slate-600 hover:text-white transition-colors"><ChevronRight className="w-10 h-10 rotate-180" /></button>
-                      <div className="w-64 h-64 bg-white p-8 rounded-[4rem] shadow-[0_0_80px_rgba(245,158,11,0.3)] mb-12 relative overflow-hidden group">
-                        <QrCode className="w-full h-full text-slate-950" />
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
-                          <Hexagon className="w-16 h-16 text-slate-950 fill-slate-950" />
-                        </div>
+                      <div className="w-64 h-64 bg-white p-6 rounded-[4rem] shadow-[0_0_80px_rgba(245,158,11,0.3)] mb-8 relative overflow-hidden flex items-center justify-center">
+                        {currentUser && <QRCodeDisplay user={currentUser} size={224} />}
                       </div>
-                      <p className="text-3xl font-black font-outfit mb-2 uppercase tracking-tight">Institutional Pass</p>
-                      <p className="text-amber-500 text-[10px] font-black uppercase tracking-[0.5em]">Encryption Active</p>
+                      <p className="text-2xl font-black font-outfit mb-2 uppercase tracking-tight">{currentUser?.name}</p>
+                      <p className="text-amber-500 text-sm font-black uppercase tracking-widest mb-1">ID: {currentUser?.uniqueId || 'Loading...'}</p>
+                      <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">Scan to Connect</p>
                     </div>
                   </motion.div>
                 ) : (
@@ -258,33 +266,103 @@ const DashboardPage: React.FC = () => {
               </div>
 
               <div className="bento-card p-12 bg-slate-950 text-white border-white/5">
-                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-16">Smart Link Analytics</h4>
+                <h4 className="text-[10px] font-black text-white uppercase tracking-[0.4em] mb-16">Smart Link Analytics</h4>
                 <div className="space-y-10">
                   {[
-                    { label: 'LinkedIn Professional Profile', icon: Linkedin, clicks: primaryCard?.linkAnalytics?.linkedin || 450, color: 'text-white' },
-                    { label: 'GitHub Repository / Assets', icon: Github, clicks: primaryCard?.linkAnalytics?.github || 230, color: 'text-slate-400' },
-                    { label: 'Corporate Landing Page', icon: Globe, clicks: primaryCard?.linkAnalytics?.website || 120, color: 'text-amber-500' },
-                    { label: 'Institutional Network Flow', icon: MousePointer2, clicks: 840, color: 'text-emerald-500' }
+                    { label: 'LinkedIn', icon: Linkedin, clicks: primaryCard?.linkAnalytics?.linkedin || 0, color: 'text-blue-300' },
+                    { label: 'GitHub', icon: Github, clicks: primaryCard?.linkAnalytics?.github || 0, color: 'text-white' },
+                    { label: 'Website', icon: Globe, clicks: primaryCard?.linkAnalytics?.website || 0, color: 'text-amber-300' },
+                    { label: 'Total Clicks', icon: MousePointer2, clicks: primaryCard?.clicks || 0, color: 'text-emerald-300' }
                   ].map((link, i) => (
                     <div key={i} className="space-y-4 group">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
                           <link.icon className={`w-6 h-6 ${link.color}`} />
-                          <span className="text-sm font-black tracking-tight uppercase group-hover:text-amber-500 transition-colors">{link.label}</span>
+                          <span className="text-base font-black tracking-tight uppercase text-white group-hover:text-amber-300 transition-colors">{link.label}</span>
                         </div>
-                        <span className="text-sm font-black text-amber-500 tracking-tighter">{link.clicks} clicks</span>
+                        <span className="text-base font-black text-amber-300 tracking-tighter">{link.clicks} clicks</span>
                       </div>
                       <div className="h-2 bg-white/5 rounded-full overflow-hidden border border-white/5">
                         <motion.div
                           initial={{ width: 0 }}
-                          animate={{ width: `${Math.min(100, (link.clicks / 1000) * 100)}%` }}
-                          className="h-full bg-amber-600 group-hover:bg-amber-500 transition-all"
+                          animate={{
+                            width: `${link.clicks > 0 ? Math.min(100, (link.clicks / Math.max(...[
+                              primaryCard?.linkAnalytics?.linkedin || 0,
+                              primaryCard?.linkAnalytics?.github || 0,
+                              primaryCard?.linkAnalytics?.website || 0,
+                              primaryCard?.clicks || 0
+                            ])) * 100) : 0}%`
+                          }}
+                          className="h-full bg-amber-500 group-hover:bg-amber-400 transition-all"
                         />
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
+            </div>
+
+            {/* Friends Section */}
+            <div className="bento-card p-12 bg-gradient-to-br from-amber-50 to-white border-amber-100">
+              <div className="flex items-center justify-between mb-12">
+                <div className="flex items-center gap-4">
+                  <div className="p-4 bg-amber-500 rounded-[2rem] text-white">
+                    <UserPlus className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h4 className="text-2xl font-black font-outfit text-slate-950 tracking-tight">Friends Network</h4>
+                    <p className="text-slate-500 text-sm font-medium">{friends.length} connections</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => navigate('/scan')}
+                  className="px-6 py-3 bg-slate-950 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-900 transition-all flex items-center gap-2"
+                >
+                  <QrCode className="w-4 h-4" />
+                  Add Friend
+                </button>
+              </div>
+
+              {friends.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {friends.map((friend) => (
+                    <div key={friend.id} className="bg-white p-6 rounded-3xl border border-slate-100 hover:border-amber-200 transition-all group">
+                      <div className="flex items-center gap-4 mb-4">
+                        <img
+                          src={friend.friendAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${friend.friendName}`}
+                          alt={friend.friendName}
+                          className="w-14 h-14 rounded-full border-2 border-amber-100 group-hover:border-amber-500 transition-all"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <h5 className="font-black text-slate-950 text-sm truncate">{friend.friendName}</h5>
+                          <p className="text-amber-600 text-xs font-bold uppercase tracking-wider">ID: {friend.friendUsername}</p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => navigate(`/card/${friend.friendUsername}`)}
+                          className="flex-1 py-2 bg-slate-50 text-slate-950 rounded-xl text-xs font-black uppercase tracking-wide hover:bg-slate-100 transition-all"
+                        >
+                          View
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-16">
+                  <UserPlus className="w-20 h-20 text-slate-200 mx-auto mb-6" />
+                  <h5 className="text-xl font-black text-slate-950 mb-3">No friends yet</h5>
+                  <p className="text-slate-500 font-medium mb-8">Scan a friend's QR code to connect</p>
+                  <button
+                    onClick={() => navigate('/scan')}
+                    className="px-8 py-4 bg-amber-500 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-amber-600 transition-all inline-flex items-center gap-3"
+                  >
+                    <Scan className="w-5 h-5" />
+                    Start Scanning
+                  </button>
+                </div>
+              )}
             </div>
           </motion.div>
         )}

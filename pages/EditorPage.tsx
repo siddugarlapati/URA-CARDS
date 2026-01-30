@@ -6,7 +6,7 @@ import { CardService } from '../services/cards';
 import { authApi } from '../services/auth';
 import { StorageService } from '../services/storage';
 import { CardData, ThemeSettings, SocialLinks, PrimaryCTA } from '../types';
-import { DEFAULT_THEME, GRADIENT_PRESETS, AVATAR_COLLECTION } from '../constants';
+import { DEFAULT_THEME, GRADIENT_PRESETS, AVATAR_COLLECTION, IGNORED_IMAGE_DOMAINS } from '../constants';
 import CardPreview from '../components/CardPreview';
 import {
    ChevronLeft, Save, User, Briefcase, Phone, Mail, Globe,
@@ -23,6 +23,7 @@ const EditorPage: React.FC = () => {
    const navigate = useNavigate();
    const [loading, setLoading] = useState(true);
    const [saving, setSaving] = useState(false);
+   const [errorMessage, setErrorMessage] = useState<string | null>(null);
    const [editorMode, setEditorMode] = useState<'quick' | 'expert'>('quick');
    const [activeTab, setActiveTab] = useState<'identity' | 'socials' | 'fields' | 'styling' | 'smart'>('identity');
 
@@ -79,51 +80,65 @@ const EditorPage: React.FC = () => {
       }));
    };
 
+   const isIgnoredDomain = (url: string | undefined) => {
+      if (!url) return false;
+      return IGNORED_IMAGE_DOMAINS.some(domain => url.includes(domain));
+   };
+
    const handleSave = async () => {
       setSaving(true);
+      setErrorMessage(null);
       try {
-         // Auto-generate slug if missing
-         let savePayload = { ...cardData };
-         if (!savePayload.usernameSlug && savePayload.name) {
-            const randomSuffix = Math.random().toString(36).substring(2, 7);
-            savePayload.usernameSlug = savePayload.name.toLowerCase().replace(/[^a-z0-9]/g, '-') + '-' + randomSuffix;
-         } else if (!savePayload.usernameSlug) {
-            // Fallback if no name either
-            savePayload.usernameSlug = 'user-' + Math.random().toString(36).substring(2, 9);
+         // --- 1. Slug Preparation ---
+         let finalSlug = cardData.usernameSlug;
+         if (!finalSlug || finalSlug.trim() === '') {
+            const base = cardData.name || 'user';
+            // Generate a guaranteed unique slug if one wasn't provided or if it's new
+            finalSlug = await CardService.ensureUniqueSlug(base);
+         } else {
+            // If user entered a slug, we might want to ensure it's valid/unique too,
+            // but for now we'll assume the service handles DB constraints or we just rely on what they typed
+            // plus basic sanitization could govern it.
+            // Ideally we check uniqueness if it changed.
          }
 
-         // --- HANDLE PENDING IMAGE UPLOADS ---
-         // 1. Profile Image
+         // Prepare base payload
+         const savePayload = { ...cardData, usernameSlug: finalSlug };
+
+         // --- 2. Image Uploads (CRITICAL FIX) ---
+         // Only update savePayload with REMOTE URLs. 
+         // If upload fails, ABORT safely.
+
+         // Profile Image
          if (pendingUploads.profile) {
             try {
                const url = await StorageService.uploadImage(pendingUploads.profile, 'profiles');
                savePayload.profileImage = url;
-               // Cleanup old image if it was different and not a default avatar
-               if (initialImagesRef.current.profile && initialImagesRef.current.profile !== url && !initialImagesRef.current.profile.includes('ui-avatars') && !initialImagesRef.current.profile.includes('dicebear')) {
-                  await StorageService.deleteImage(initialImagesRef.current.profile);
-               }
-            } catch (err) {
-               console.error("Profile upload failed", err);
-               // Keep the temporary (blob) URL or revert? For now, we might save with blob URL which is broken, so ideally we stop.
-               // But to be safe, maybe we just alert and don't change it.
+            } catch (imageErr) {
+               console.error("Profile image upload failed", imageErr);
+               throw new Error("Failed to upload profile image. Please try again.");
             }
+         } else if (savePayload.profileImage?.startsWith('blob:')) {
+            // CRITICAL: Never accidentally save a blob URL if upload wasn't pending/successful
+            // This happens if state got de-synced. Revert to initial or empty.
+            console.warn("Detected blob URL without pending upload. Reverting.");
+            savePayload.profileImage = initialImagesRef.current.profile;
          }
 
-         // 2. Brand Logo
+         // Brand Logo
          if (pendingUploads.brand) {
             try {
                const url = await StorageService.uploadImage(pendingUploads.brand, 'brands');
                savePayload.brandLogo = url;
-               // Cleanup old logo
-               if (initialImagesRef.current.brand && initialImagesRef.current.brand !== url) {
-                  await StorageService.deleteImage(initialImagesRef.current.brand);
-               }
-            } catch (err) {
-               console.error("Brand upload failed", err);
+            } catch (imageErr) {
+               console.error("Brand logo upload failed", imageErr);
+               throw new Error("Failed to upload brand logo. Please try again.");
             }
+         } else if (savePayload.brandLogo?.startsWith('blob:')) {
+            savePayload.brandLogo = initialImagesRef.current.brand;
          }
-         // ------------------------------------
 
+         // --- 3. Save to DB ---
          if (cardData.id) {
             await CardService.updateCard(cardData.id, savePayload);
          } else {
@@ -131,18 +146,37 @@ const EditorPage: React.FC = () => {
             if (user) {
                await CardService.createCard(user.id, savePayload);
             } else {
-               // Redirect to login if not authenticated (unlikely if in editor but possible)
                navigate('/auth');
                return;
             }
          }
 
-         // Cleanup blobs
+         // --- 4. Cleanup ---
+         // Delete old images if they were replaced and weren't default avatars
+         if (savePayload.profileImage !== initialImagesRef.current.profile && initialImagesRef.current.profile) {
+            if (!isIgnoredDomain(initialImagesRef.current.profile)) {
+               await StorageService.deleteImage(initialImagesRef.current.profile);
+            }
+         }
+         if (savePayload.brandLogo !== initialImagesRef.current.brand && initialImagesRef.current.brand) {
+            await StorageService.deleteImage(initialImagesRef.current.brand);
+         }
+
+         // Revoke local previews
          if (cardData.profileImage?.startsWith('blob:')) URL.revokeObjectURL(cardData.profileImage);
          if (cardData.brandLogo?.startsWith('blob:')) URL.revokeObjectURL(cardData.brandLogo);
 
          navigate('/dashboard');
-      } catch (err) { alert('Error saving'); console.error(err); } finally { setSaving(false); }
+
+      } catch (err: unknown) {
+         console.error("Save error:", err);
+         const msg = err instanceof Error ? err.message : 'An error occurred while saving. Please try again.';
+         setErrorMessage(msg);
+         // Scroll to top to see error
+         window.scrollTo(0, 0);
+      } finally {
+         setSaving(false);
+      }
    };
 
    if (loading) return (
@@ -153,7 +187,7 @@ const EditorPage: React.FC = () => {
    );
 
    return (
-      <div className="max-w-7xl mx-auto px-8 py-12 flex flex-col lg:flex-row gap-20">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-12 flex flex-col lg:flex-row gap-10 lg:gap-20">
          {/* Editor Controls */}
          <div className="flex-1 max-w-2xl">
             <div className="flex items-center justify-between mb-10">
@@ -167,19 +201,26 @@ const EditorPage: React.FC = () => {
                </div>
             </div>
 
-            <div className="mb-14">
-               <h1 className="text-7xl font-black font-outfit text-slate-950 mb-4 tracking-tighter uppercase leading-none">Ura Studio</h1>
+            <div className="mb-10 md:mb-14">
+               <h1 className="text-4xl md:text-7xl font-black font-outfit text-slate-950 mb-4 tracking-tighter uppercase leading-none">Ura Studio</h1>
                <div className="flex items-center gap-3">
                   <Figma className="w-4 h-4 text-amber-500" />
                   <p className="text-slate-400 font-bold uppercase tracking-[0.3em] text-[10px]">Institutional Designer v4.0 Platinum Edition</p>
                </div>
             </div>
 
+            {errorMessage && (
+               <div className="mb-8 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-600">
+                  <Shield className="w-5 h-5 flex-shrink-0" />
+                  <p className="text-xs font-bold">{errorMessage}</p>
+               </div>
+            )}
+
             <div className="space-y-8">
                {editorMode === 'quick' ? (
-                  <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                     <section className="bg-white p-10 bento-card border-slate-900/5 space-y-10">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                  <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                     <section className="bg-white p-6 md:p-10 bento-card border-slate-900/5 space-y-8 md:space-y-10">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
                            <div className="space-y-4">
                               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Full Name</label>
                               <input type="text" name="name" value={cardData.name} onChange={handleChange} className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-slate-950 font-bold outline-none" />
@@ -189,7 +230,7 @@ const EditorPage: React.FC = () => {
                               <input type="email" name="email" value={cardData.email} onChange={handleChange} className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-slate-950 font-bold outline-none" />
                            </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-10">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-10">
                            <div className="space-y-4">
                               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Master Role</label>
                               <input type="text" name="role" value={cardData.role} onChange={handleChange} className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-6 py-4 text-slate-950 font-bold outline-none" />
@@ -201,7 +242,7 @@ const EditorPage: React.FC = () => {
                         </div>
                      </section>
 
-                     <section className="bg-white p-10 bento-card space-y-10">
+                     <section className="bg-white p-6 md:p-10 bento-card space-y-8 md:space-y-10">
                         <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2"><Sparkles className="w-4 h-4 text-amber-500" /> Essential Networking</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                            <div className="space-y-3">
@@ -217,7 +258,7 @@ const EditorPage: React.FC = () => {
                   </div>
                ) : (
                   <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                     <div className="flex flex-wrap gap-2 p-1.5 bg-slate-50 rounded-full border border-slate-100 w-fit mb-10 overflow-hidden shadow-inner">
+                     <div className="flex flex-wrap gap-2 p-1.5 bg-slate-50 rounded-full border border-slate-100 w-full md:w-fit mb-8 md:mb-10 overflow-x-auto no-scrollbar shadow-inner">
                         {[
                            { id: 'identity', icon: User },
                            { id: 'socials', icon: Share2 },
@@ -317,7 +358,7 @@ const EditorPage: React.FC = () => {
                                              {pendingUploads.profile ? 'Image Selected (Pending Save)' : 'Click to Upload Custom Photo'}
                                           </div>
                                        </div>
-                                       {cardData.profileImage && !cardData.profileImage.includes('dicebear') && (
+                                       {cardData.profileImage && !isIgnoredDomain(cardData.profileImage) && (
                                           <div className="w-12 h-12 rounded-xl bg-cover bg-center shadow-lg border-2 border-white" style={{ backgroundImage: `url(${cardData.profileImage})` }} />
                                        )}
                                     </div>
@@ -491,15 +532,15 @@ const EditorPage: React.FC = () => {
                whileTap={{ scale: 0.98 }}
                onClick={handleSave}
                disabled={saving}
-               className="mt-20 w-full py-9 bg-slate-950 text-white font-black text-xl rounded-[3rem] shadow-2xl flex items-center justify-center space-x-4 transition-all uppercase tracking-widest"
+               className="mt-20 w-full py-9 bg-slate-950 text-white font-black text-xl rounded-[3rem] shadow-2xl flex items-center justify-center space-x-4 transition-all uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
             >
                {saving ? 'Synchronizing Ura Core...' : <><Save className="w-6 h-6 text-amber-500" /><span>Publish Changes</span></>}
             </motion.button>
          </div>
 
          {/* Live Preview Column */}
-         <div className="lg:w-[450px]">
-            <div className="lg:sticky lg:top-32 text-center">
+         <div className="w-full lg:w-[450px]">
+            <div className="lg:sticky lg:top-32 text-center pb-20 lg:pb-0">
                <div className="mb-12 inline-flex items-center gap-3 px-8 py-3 bg-slate-50 rounded-full border border-slate-100 shadow-inner">
                   <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
                   <span className="text-[10px] font-black text-slate-950 uppercase tracking-widest">Live Studio Monitor (v4.0)</span>

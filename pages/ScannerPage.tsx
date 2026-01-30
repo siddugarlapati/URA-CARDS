@@ -1,27 +1,114 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Camera, X, QrCode, Zap, Info, ShieldCheck, Search } from 'lucide-react';
+import { Camera, X, QrCode, Zap, Info, ShieldCheck, Search, CheckCircle2, AlertCircle, UserPlus } from 'lucide-react';
+import { Html5Qrcode } from 'html5-qrcode';
+import { FriendsService } from '../services/friends';
 
 const ScannerPage: React.FC = () => {
   const navigate = useNavigate();
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const [scanning, setScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<{ success: boolean; message: string; friendName?: string } | null>(null);
+  const [html5QrCode, setHtml5QrCode] = useState<Html5Qrcode | null>(null);
 
   useEffect(() => {
-    async function startCamera() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        if (videoRef.current) { videoRef.current.srcObject = stream; }
-      } catch (err) { console.error("Camera access denied", err); }
-    }
-    startCamera();
+    startScanner();
     return () => {
-      if (videoRef.current?.srcObject) {
-        (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
-      }
+      stopScanner();
     };
   }, []);
+
+  const startScanner = async () => {
+    try {
+      const qrCode = new Html5Qrcode("qr-reader");
+      setHtml5QrCode(qrCode);
+
+      await qrCode.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 }
+        },
+        onScanSuccess,
+        onScanFailure
+      );
+
+      setScanning(true);
+    } catch (err) {
+      console.error("Error starting scanner:", err);
+    }
+  };
+
+  const stopScanner = () => {
+    if (html5QrCode) {
+      html5QrCode.stop().catch(err => console.error("Error stopping scanner:", err));
+    }
+  };
+
+  const onScanSuccess = async (decodedText: string) => {
+    try {
+      // Parse the QR code data
+      const data = JSON.parse(decodedText);
+
+      if (data.type === 'ura-card-friend' && data.uniqueId) {
+        // Stop scanning temporarily
+        stopScanner();
+
+        // Add friend
+        const result = await FriendsService.addFriendByUniqueId(data.uniqueId);
+
+        if (result.success) {
+          setScanResult({
+            success: true,
+            message: 'Friend added successfully!',
+            friendName: result.friend?.friendName
+          });
+
+          // Auto-navigate to dashboard after 2 seconds
+          setTimeout(() => {
+            navigate('/dashboard');
+          }, 2000);
+        } else {
+          setScanResult({
+            success: false,
+            message: result.error || 'Failed to add friend'
+          });
+
+          // Restart scanning after 3 seconds
+          setTimeout(() => {
+            setScanResult(null);
+            startScanner();
+          }, 3000);
+        }
+      } else {
+        setScanResult({
+          success: false,
+          message: 'Invalid QR code format'
+        });
+
+        setTimeout(() => {
+          setScanResult(null);
+          startScanner();
+        }, 2000);
+      }
+    } catch (err) {
+      console.error("Error processing QR code:", err);
+      setScanResult({
+        success: false,
+        message: 'Invalid QR code'
+      });
+
+      setTimeout(() => {
+        setScanResult(null);
+        startScanner();
+      }, 2000);
+    }
+  };
+
+  const onScanFailure = (error: any) => {
+    // Ignore scan failures (they happen constantly while scanning)
+  };
 
   const handleManualSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +119,7 @@ const ScannerPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col relative overflow-hidden">
       <div className="absolute inset-0 opacity-20 pointer-events-none">
-         <div className="absolute top-1/4 left-1/4 w-[50vw] h-[50vw] bg-amber-500 blur-[180px] rounded-full" />
+        <div className="absolute top-1/4 left-1/4 w-[50vw] h-[50vw] bg-amber-500 blur-[180px] rounded-full" />
       </div>
 
       <div className="relative z-10 flex flex-col h-full flex-1">
@@ -42,7 +129,7 @@ const ScannerPage: React.FC = () => {
           </button>
           <div className="flex items-center gap-3 text-white/40 text-[10px] font-black uppercase tracking-[0.4em]">
             <ShieldCheck className="w-4 h-4 text-amber-500" />
-            <span>Secure Scanner 2.0</span>
+            <span>QR Scanner</span>
           </div>
           <div className="w-12" />
         </div>
@@ -50,49 +137,70 @@ const ScannerPage: React.FC = () => {
         <div className="flex-1 flex flex-col items-center justify-center p-6">
           <div className="text-center mb-16">
             <h1 className="text-4xl font-black font-outfit text-white mb-3">Connect Instantly</h1>
-            <p className="text-slate-500 font-medium">Auto-captures any LuxeCard QR or Member Identity</p>
+            <p className="text-slate-500 font-medium">Scan a friend's QR code to connect</p>
           </div>
 
-          <div className="relative w-full max-w-sm aspect-square">
-             <div className="absolute -top-2 -left-2 w-20 h-20 border-t-4 border-l-4 border-amber-600 rounded-tl-[3rem] z-20" />
-             <div className="absolute -top-2 -right-2 w-20 h-20 border-t-4 border-r-4 border-amber-600 rounded-tr-[3rem] z-20" />
-             <div className="absolute -bottom-2 -left-2 w-20 h-20 border-b-4 border-l-4 border-amber-600 rounded-bl-[3rem] z-20" />
-             <div className="absolute -bottom-2 -right-2 w-20 h-20 border-b-4 border-r-4 border-amber-600 rounded-br-[3rem] z-20" />
-             
-             <motion.div 
-               animate={{ top: ['10%', '90%', '10%'] }} 
-               transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-               className="absolute left-[10%] right-[10%] h-1 bg-amber-500 shadow-[0_0_30px_rgba(217,119,6,1)] z-20 opacity-80" 
-             />
+          <div className="relative w-full max-w-sm aspect-square mb-8">
+            <div id="qr-reader" className="w-full h-full rounded-[4rem] overflow-hidden border-4 border-amber-600/30" />
 
-             <div className="w-full h-full bg-slate-900 rounded-[4rem] overflow-hidden border border-white/10 relative shadow-2xl">
-                <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover opacity-60 mix-blend-overlay" />
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                   <QrCode className="w-32 h-32 text-white/5" />
+            {/* Corner decorations */}
+            <div className="absolute -top-2 -left-2 w-20 h-20 border-t-4 border-l-4 border-amber-600 rounded-tl-[3rem] z-20 pointer-events-none" />
+            <div className="absolute -top-2 -right-2 w-20 h-20 border-t-4 border-r-4 border-amber-600 rounded-tr-[3rem] z-20 pointer-events-none" />
+            <div className="absolute -bottom-2 -left-2 w-20 h-20 border-b-4 border-l-4 border-amber-600 rounded-bl-[3rem] z-20 pointer-events-none" />
+            <div className="absolute -bottom-2 -right-2 w-20 h-20 border-b-4 border-r-4 border-amber-600 rounded-br-[3rem] z-20 pointer-events-none" />
+          </div>
+
+          {/* Scan Result */}
+          <AnimatePresence>
+            {scanResult && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className={`w-full max-w-md p-6 rounded-3xl ${scanResult.success ? 'bg-emerald-500/10 border-2 border-emerald-500' : 'bg-red-500/10 border-2 border-red-500'}`}
+              >
+                <div className="flex items-center gap-4">
+                  {scanResult.success ? (
+                    <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                  ) : (
+                    <AlertCircle className="w-8 h-8 text-red-500" />
+                  )}
+                  <div className="flex-1">
+                    <p className={`font-black text-lg ${scanResult.success ? 'text-emerald-500' : 'text-red-500'}`}>
+                      {scanResult.success ? 'Success!' : 'Error'}
+                    </p>
+                    <p className="text-white text-sm font-medium">
+                      {scanResult.message}
+                      {scanResult.friendName && ` - ${scanResult.friendName}`}
+                    </p>
+                  </div>
                 </div>
-             </div>
-          </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          <form onSubmit={handleManualSearch} className="mt-20 w-full max-w-md">
-             <div className="relative group">
-               <input 
-                 name="username"
-                 type="text" 
-                 placeholder="Search by institutional alias..." 
-                 className="w-full bg-white/5 border border-white/10 rounded-[2.5rem] pl-8 pr-20 py-6 text-white font-bold outline-none focus:border-amber-500 transition-all text-lg"
-               />
-               <button type="submit" className="absolute right-3 top-3 p-4 bg-amber-600 rounded-3xl text-white shadow-xl hover:bg-amber-500 transition-all">
+          {!scanResult && (
+            <form onSubmit={handleManualSearch} className="mt-12 w-full max-w-md">
+              <div className="relative group">
+                <input
+                  name="username"
+                  type="text"
+                  placeholder="Or search by username..."
+                  className="w-full bg-white/5 border border-white/10 rounded-[2.5rem] pl-8 pr-20 py-6 text-white font-bold outline-none focus:border-amber-500 transition-all text-lg"
+                />
+                <button type="submit" className="absolute right-3 top-3 p-4 bg-amber-600 rounded-3xl text-white shadow-xl hover:bg-amber-500 transition-all">
                   <Search className="w-6 h-6" />
-               </button>
-             </div>
-          </form>
+                </button>
+              </div>
+            </form>
+          )}
         </div>
 
         <div className="p-12 text-center">
-           <div className="inline-flex items-center justify-center gap-6 text-slate-500 text-[10px] font-black uppercase tracking-[0.4em]">
-              <span className="flex items-center gap-2"><Zap className="w-3 h-3" /> Adaptive Focus</span>
-              <span className="flex items-center gap-2"><ShieldCheck className="w-3 h-3" /> Encrypted Scan</span>
-           </div>
+          <div className="inline-flex items-center justify-center gap-6 text-slate-500 text-[10px] font-black uppercase tracking-[0.4em]">
+            <span className="flex items-center gap-2"><Zap className="w-3 h-3" /> Auto-Detect</span>
+            <span className="flex items-center gap-2"><ShieldCheck className="w-3 h-3" /> Secure</span>
+          </div>
         </div>
       </div>
     </div>

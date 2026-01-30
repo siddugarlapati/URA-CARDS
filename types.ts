@@ -1,11 +1,22 @@
 
 export interface User {
   id: string;
+  uniqueId?: string; // Unique shareable ID for QR codes
   name: string;
   email: string;
   company?: string;
   role?: string;
   createdAt: string;
+}
+
+export interface Friend {
+  id: string;
+  userId: string;
+  friendId: string;
+  friendName: string;
+  friendUsername: string;
+  friendAvatar?: string;
+  addedAt: string;
 }
 
 export interface CustomField {
@@ -95,4 +106,34 @@ export interface CardData {
   isPrivate: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface DbCard {
+  id?: string;
+  user_id?: string;
+  username_slug?: string;
+  theme?: ThemeSettings;
+  name?: string;
+  role?: string;
+  company?: string;
+  phone?: string;
+  is_phone_private?: boolean;
+  email?: string;
+  is_email_private?: boolean;
+  website?: string;
+  address?: string;
+  bio?: string;
+  profile_image?: string;
+  brand_logo?: string;
+  primary_cta?: PrimaryCTA;
+  custom_fields?: CustomField[];
+  social_links?: SocialLinks;
+  is_private?: boolean;
+  views?: number;
+  clicks?: number;
+  scans?: number;
+  followers?: number;
+  mutuals?: number;
+  created_at?: string;
+  updated_at?: string;
 }

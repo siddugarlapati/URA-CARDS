@@ -45,4 +45,6 @@ export const AVATAR_COLLECTION = {
   ]
 };
 
+export const IGNORED_IMAGE_DOMAINS = ['ui-avatars.com', 'dicebear.com'];
+
 export const MOCK_API_DELAY = 400;
